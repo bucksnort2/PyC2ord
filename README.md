@@ -1,12 +1,15 @@
 # PyC2ord
 Python Bot to use Discord as a C2 for Red Team
 
+# Initial Setup
+Before you can use this bot, you need to create a bot user on Discord and add it to a server. I recommend creating a new private server for you and your bot. There are many tutorials online on how to create and invite a bot user to your Discord server. Once you have these, save your bot token (keep it secret, keep it safe). Without this, you cannot communicate with your bot.
+
 # bot.py
 This is the first iteration of the bot I built. On the victim machine, you will need to download the discord.py library before running this bot.
 It can run many CLI commands on Windows and Linux. The return value must be under 2000 characters, otherwise, Discord will not show it.
 
 # client.py and server.py
-These are currently in-progress. You can run server.py on a machine you host and deploy client.py on your victim machines. Run server.py first, then start client.py. The client machines will establish a connection and the server will display the connection.
+These are currently in-progress. You can run server.py on a machine you control and deploy client.py on your victim machines. Run server.py first, then start client.py. The client machines will establish a connection and the server will display the connection. The machine running server.py will need the Discord Python library installed. The Client machines should only need Python installed.
 
 # TODO
 server.py
