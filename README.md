@@ -1,5 +1,5 @@
-# DiscordC2
-Bot to use Discord as a C2 for Red Team
+# PyC2ord
+Python Bot to use Discord as a C2 for Red Team
 
 # bot.py
 This is the first iteration of the bot I built. On the victim machine, you will need to download the discord.py library before running this bot.
