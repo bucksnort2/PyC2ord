@@ -19,7 +19,15 @@ client.py
 
 Feel free to contact me with suggestions.
 
-Discord @bucksnort2 Twitter @bucksnort21 Threads @bucksnort2 email bucksnort2cyber@gmail.com
+Discord @bucksnort2
+
+Twitter @bucksnort21
+
+Threads @bucksnort2
+
+Email bucksnort2cyber@gmail.com
+
+
 
 # Disclaimer: PyC2ord - A Discord C2 Bot for Red Teams
 
@@ -44,7 +52,9 @@ Bucksnort2 reserves the right to change or update this disclaimer without prior 
 Use PyC2ord responsibly and for legitimate purposes only.
 
 Bucksnort2
+
 bucksnort2cyber@gmail.com
+
 2023-07-20
 
 Remember: Only hack what you own, and hack it with permission. Stay ethical, stay responsible.
