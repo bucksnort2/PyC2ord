@@ -9,16 +9,22 @@ This is the first iteration of the bot I built. On the victim machine, you will 
 It can run many CLI commands on Windows and Linux. The return value must be under 2000 characters, otherwise, Discord will not show it.
 
 # client.py and server.py
-These are currently in-progress. You can run server.py on a machine you control and deploy client.py on your victim machines. Run server.py first, then start client.py. The client machines will establish a connection and the server will display the connection. The machine running server.py will need the Discord Python library installed. The Client machines should only need Python installed.
+First, you need to create a Discord bot user. There are many tutorials online, and if I find a good one, I'll link it here. Once you have a bot user ready, download server.py onto a machine you control and can be connected to by your target machines. You will need to install Python if you haven't already, and on your server machine, you need to install the discord.py library.
+
+```python3 -m pip install discord```
+
+Once installed, configure server.py with the port it is listening on, and an optional host to listen on. Leave host blank to listen on all network connections.
+
+For your victim machines, edit client.py to point to your server. If you're on the local network, you can use a private IP address, and if you are attacking across the internet, your public IP address and the port-forwarded/opened port, and run it on your victim machine.
+
+Go to your Discord server that has the bot user. You should see it as an active user. Use !h for a list of commands, !list to list all the connected clients, !target <index> to target a machine (index is in the list), and !execute <command> to run a command on the client machine.
+
+Because of Discord's limits, any message longer than 2000 characters will not go through.
 
 # TODO
 server.py
- - Create a !help command to list all the Discord commands you can run
- - Other things as I see fit
-
-client.py
- - Allow incoming connections from the server to execute commands
- - Other things as I see fit
+ - There are some bugs I can sort out
+ - Add a !name command to change the name of the different targets to be easier to remember.
 
 Feel free to contact me with suggestions.
 
